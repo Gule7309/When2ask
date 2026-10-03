@@ -6,7 +6,7 @@ This repository is a research reproduction and stress-test project built around 
 
 The working hypothesis is that SAGE's structured belief can be well-defined *conditional on the current candidate set* while still being overconfident about the task as a whole. If the correct interpretation is absent from the candidate set, downstream uncertainty scoring may have no explicit way to represent that omission.
 
-> **Status:** experiment scaffold in progress. No empirical result is claimed in this repository yet.
+> **Status:** Phase 1 diagnostic harness implemented; no empirical result is claimed yet. The current harness reconstructs SAGE candidate generation, structured viability scoring, and the first execution-threshold check. Full EVPI question scoring is not implemented yet.
 
 ## Research question
 
@@ -41,7 +41,7 @@ Primary evaluation is planned on ClarifyBench-Ambiguous. We retain the paper's C
 - confidence/correctness calibration split by candidate presence;
 - oracle recovery gap.
 
-See [`docs/experiment_plan.md`](docs/experiment_plan.md) for the preregistered analysis plan.
+See [`docs/experiment_plan.md`](docs/experiment_plan.md) for the preregistered analysis plan and [`docs/sage_reconstruction.md`](docs/sage_reconstruction.md) for the assumptions required to reconstruct SAGE from the paper.
 
 ## Why candidate-set incompleteness?
 
@@ -78,7 +78,23 @@ Only the third outcome would strongly support the proposed attack.
 └── tests/
 ```
 
-The code currently focuses on the parts that should be model-independent and easy to audit: ground-truth compatibility, candidate-set interventions, data loading, and diagnostic metrics. Agent integration will be added only after these components are stable. The current JSONL trace schema and diagnostic CLI are documented in [`docs/trace_schema.md`](docs/trace_schema.md).
+The code now includes a minimal paper-reconstructed SAGE probe: N-way candidate generation with `<UNK>`, schema-based structured viability, and the first execution-threshold check. It deliberately stops before question generation / EVPI scoring. Ground-truth compatibility, interventions, and diagnostic metrics remain separate analysis components. The current JSONL trace schema is documented in [`docs/trace_schema.md`](docs/trace_schema.md).
+
+## Phase 1: initial candidate-set probe
+
+After bootstrapping ClarifyBench and setting an OpenAI-compatible API key, a small diagnostic run can be launched with:
+
+~~~bash
+python scripts/run_initial_candidate_probe.py \
+  --output results/initial_probe.jsonl \
+  --tau-exec 0.8 \
+  --n-candidates 5 \
+  --limit 20
+~~~
+
+The value `0.8` above is an example sensitivity point, **not** a recovered paper hyperparameter. The script requires `--tau-exec` explicitly for that reason.
+
+The current probe aligns the initial user query to the first ground-truth tool call only. Its purpose is to measure initial candidate recall and inspect the reconstructed confidence behavior before implementing the full multi-turn intervention experiment. It must not be reported as full ClarifyBench performance.
 
 ## Reproducibility baseline
 
@@ -98,14 +114,14 @@ The upstream code and the paper are not perfectly aligned. In particular, the pu
 
 ## Development
 
-The core package has no runtime dependency beyond Python 3.10+. Tests use `pytest`.
+The core package has no runtime dependency beyond Python 3.10+. Tests use `pytest`; live candidate generation uses the optional `openai` client.
 
 ```bash
 python -m pip install -e '.[dev]'
 pytest
 ```
 
-At the initial scaffold commit, the model-independent test suite contains 13 tests covering compatibility, interventions, metrics, trace parsing, and the current ClarifyBench JSON schema.
+The test suite covers compatibility, interventions, structured viability, candidate generation, first-stage decisions, trace parsing, and the current ClarifyBench JSON schema.
 
 ## Upstream
 
