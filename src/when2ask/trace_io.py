@@ -11,7 +11,7 @@ def _candidate_from_dict(data: dict[str, Any]) -> Candidate:
     return Candidate(
         tool_name=data["tool_name"],
         arguments=data.get("arguments", data.get("parameters", {})),
-        confidence=data.get("confidence"),
+        confidence=data.get("confidence", data.get("viability")),
     )
 
 
