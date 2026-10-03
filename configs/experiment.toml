@@ -9,6 +9,11 @@ alpha = 0.1
 epsilon = 1e-4
 temperature = 0.5
 
+[reconstruction]
+candidate_prompt = "reconstructed_v1"
+threshold_quantity = "raw_viability"
+include_optional_parameters = true
+
 [study]
 conditions = ["natural", "oracle_complete", "forced_miss"]
 candidate_sizes = [1, 3, 5, 10]
