@@ -63,19 +63,22 @@ Only the third outcome would strongly support the proposed attack.
 │   └── experiment.toml
 ├── docs/
 │   ├── experiment_plan.md
-│   └── reproduction_notes.md
+│   ├── reproduction_notes.md
+│   └── trace_schema.md
 ├── scripts/
-│   └── bootstrap_clarifybench.py
+│   ├── bootstrap_clarifybench.py
+│   └── inspect_candidate_recall.py
 ├── src/when2ask/
 │   ├── clarifybench.py
 │   ├── compatibility.py
 │   ├── interventions.py
 │   ├── metrics.py
-│   └── models.py
+│   ├── models.py
+│   └── trace_io.py
 └── tests/
 ```
 
-The code currently focuses on the parts that should be model-independent and easy to audit: ground-truth compatibility, candidate-set interventions, data loading, and diagnostic metrics. Agent integration will be added only after these components are stable.
+The code currently focuses on the parts that should be model-independent and easy to audit: ground-truth compatibility, candidate-set interventions, data loading, and diagnostic metrics. Agent integration will be added only after these components are stable. The current JSONL trace schema and diagnostic CLI are documented in [`docs/trace_schema.md`](docs/trace_schema.md).
 
 ## Reproducibility baseline
 
@@ -102,7 +105,7 @@ python -m pip install -e '.[dev]'
 pytest
 ```
 
-At the initial scaffold commit, the model-independent test suite contains 12 tests covering compatibility, interventions, metrics, and the current ClarifyBench JSON schema.
+At the initial scaffold commit, the model-independent test suite contains 13 tests covering compatibility, interventions, metrics, trace parsing, and the current ClarifyBench JSON schema.
 
 ## Upstream
 
