@@ -2,7 +2,7 @@
 
 **Candidate-set incompleteness in structured-uncertainty tool agents**
 
-This repository is a research reproduction and stress-test project built around *Structured Uncertainty guided Clarification for LLM Agents* (Suri et al., Findings of ACL 2026). The immediate goal is not to propose a new agent. It is to test a narrower assumption in SAGE-Agent: whether confidence over a model-generated candidate set remains meaningful when the intended tool call is not represented in that set.
+This repository is a research reconstruction and controlled stress-test project built around *Structured Uncertainty guided Clarification for LLM Agents* (Suri et al., Findings of ACL 2026). The immediate goal is not to propose a new agent. It is to test a narrower assumption in SAGE-Agent: whether confidence over a model-generated candidate set remains meaningful when the intended tool call is not represented in that set.
 
 The working hypothesis is that SAGE's structured belief can be well-defined *conditional on the current candidate set* while still being overconfident about the task as a whole. If the correct interpretation is absent from the candidate set, downstream uncertainty scoring may have no explicit way to represent that omission.
 
@@ -43,6 +43,18 @@ Primary evaluation is planned on ClarifyBench-Ambiguous. We retain the paper's C
 
 See [`docs/experiment_plan.md`](docs/experiment_plan.md) for the preregistered analysis plan and [`docs/sage_reconstruction.md`](docs/sage_reconstruction.md) for the assumptions required to reconstruct SAGE from the paper.
 
+## Model policy
+
+The original paper evaluates GPT-4o and Qwen2.5-14B-Instruct. This repository distinguishes three kinds of runs:
+
+1. **paper reproduction** — matching the paper's base model and serving condition;
+2. **mechanism reconstruction** — keeping the reconstructed SAGE mechanism fixed while using another explicitly reported model;
+3. **cross-model robustness** — repeating the same candidate-set intervention across multiple base models.
+
+A run with another model must not be reported as a reproduction of the paper's Table 3.
+
+For local pipeline validation, the current development condition is `qwen2.5:7b` served through Ollama's OpenAI-compatible endpoint. The model choice and local quantization are part of the experimental condition, not an implementation detail. See [`docs/local_model_protocol.md`](docs/local_model_protocol.md).
+
 ## Why candidate-set incompleteness?
 
 SAGE first generates a finite candidate set and then computes structured uncertainty over those candidates. This is a reasonable and tractable design, but it raises an open-world question: internal confidence may measure which candidate is best *among those considered*, rather than whether the intended candidate was considered at all.
@@ -63,38 +75,58 @@ Only the third outcome would strongly support the proposed attack.
 │   └── experiment.toml
 ├── docs/
 │   ├── experiment_plan.md
+│   ├── local_model_protocol.md
 │   ├── reproduction_notes.md
+│   ├── sage_reconstruction.md
 │   └── trace_schema.md
 ├── scripts/
 │   ├── bootstrap_clarifybench.py
-│   └── inspect_candidate_recall.py
+│   ├── inspect_candidate_recall.py
+│   ├── run_initial_candidate_probe.py
+│   ├── run_qwen25_7b_smoke.ps1
+│   └── summarize_initial_probe.py
 ├── src/when2ask/
+│   ├── belief.py
 │   ├── clarifybench.py
 │   ├── compatibility.py
+│   ├── decision.py
+│   ├── generation.py
+│   ├── harness.py
 │   ├── interventions.py
 │   ├── metrics.py
 │   ├── models.py
-│   └── trace_io.py
+│   ├── probe_analysis.py
+│   ├── provider.py
+│   ├── schema.py
+│   ├── trace_io.py
+│   └── upstream.py
 └── tests/
 ```
 
-The code now includes a minimal paper-reconstructed SAGE probe: N-way candidate generation with `<UNK>`, schema-based structured viability, and the first execution-threshold check. It deliberately stops before question generation / EVPI scoring. Ground-truth compatibility, interventions, and diagnostic metrics remain separate analysis components. The current JSONL trace schema is documented in [`docs/trace_schema.md`](docs/trace_schema.md).
+The code now includes a minimal paper-reconstructed SAGE probe: N-way candidate generation with `<UNK>`, schema-based structured viability, and the first execution-threshold check. It deliberately stops before question generation / EVPI scoring. Ground-truth compatibility, interventions, and diagnostic metrics remain separate analysis components.
 
 ## Phase 1: initial candidate-set probe
 
-After bootstrapping ClarifyBench and setting an OpenAI-compatible API key, a small diagnostic run can be launched with:
+The first empirical step is a 20-example smoke test, followed by manual audit. On Windows with Ollama and Qwen2.5-7B:
 
-~~~bash
-python scripts/run_initial_candidate_probe.py \
-  --output results/initial_probe.jsonl \
-  --tau-exec 0.8 \
-  --n-candidates 5 \
-  --limit 20
-~~~
+```powershell
+python -m pip install -e ".[dev,llm]"
+powershell -ExecutionPolicy Bypass -File scripts/run_qwen25_7b_smoke.ps1
+```
 
-The value `0.8` above is an example sensitivity point, **not** a recovered paper hyperparameter. The script requires `--tau-exec` explicitly for that reason.
+The helper script pulls `qwen2.5:7b`, bootstraps the pinned ClarifyBench checkout if needed, runs the initial probe with temperature `0.5`, and prints a Phase 1 summary.
 
-The current probe aligns the initial user query to the first ground-truth tool call only. Its purpose is to measure initial candidate recall and inspect the reconstructed confidence behavior before implementing the full multi-turn intervention experiment. It must not be reported as full ClarifyBench performance.
+The default `tau_exec=0.8` in the smoke test is only a diagnostic sensitivity point. It is **not** claimed to be the paper's execution threshold.
+
+The current probe aligns the initial user query to the first ground-truth tool call only. Its purpose is to measure initial candidate recall and inspect reconstructed confidence behavior before implementing the full multi-turn intervention experiment. It must not be reported as full ClarifyBench performance.
+
+The Phase 1 summary reports candidate recall separately from the more mechanism-specific quantity:
+
+```text
+high-viability wrong-best rate given GT candidate absent
+```
+
+That distinction is important because base-model quality directly affects candidate recall, whereas the conditional behavior after omission is the central target of the attack.
 
 ## Reproducibility baseline
 
@@ -112,20 +144,23 @@ python scripts/bootstrap_clarifybench.py
 
 The upstream code and the paper are not perfectly aligned. In particular, the public configuration currently uses temperature `0.7`, while the paper reports temperature `0.5` for the main comparison. The paper also introduces an execution threshold but does not provide a numerical value in the experiment description we inspected. These are treated as reproduction uncertainties rather than silently resolved; details are recorded in [`docs/reproduction_notes.md`](docs/reproduction_notes.md).
 
+The upstream harness also updates data-dependent tool domains from each sample context before agent execution. The local adapter mirrors this behavior because SAGE's structured viability depends directly on domain cardinality.
+
 ## Development
 
 The core package has no runtime dependency beyond Python 3.10+. Tests use `pytest`; live candidate generation uses the optional `openai` client.
 
 ```bash
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev,llm]'
 pytest
 ```
 
-The test suite covers compatibility, interventions, structured viability, candidate generation, first-stage decisions, trace parsing, and the current ClarifyBench JSON schema.
+The test suite covers compatibility, interventions, structured viability, candidate generation, first-stage decisions, local JSON parsing, Phase 1 analysis, trace parsing, and the current ClarifyBench JSON schema. GitHub Actions runs the suite on pushes and pull requests.
 
 ## Upstream
 
 - Paper: *Structured Uncertainty guided Clarification for LLM Agents*, Findings of ACL 2026.
 - Public benchmark/code: <https://github.com/MananSuri27/ClarifyBench>
+- Local development model: <https://ollama.com/library/qwen2.5:7b>
 
 This repository is an independent research project and is not an official implementation maintained by the paper authors.
