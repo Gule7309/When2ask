@@ -19,7 +19,12 @@ def load_tool_specs_for_sample(
     upstream_root: str | Path,
     sample: Mapping[str, Any],
 ) -> dict[str, ToolSpec]:
-    """Load the public ClarifyBench tool registry without creating an LLM provider."""
+    """Load the public ClarifyBench tool registry without creating an LLM provider.
+
+    The upstream simulation updates data-dependent argument domains from the current
+    sample context before agent execution. We mirror that behavior here because
+    SAGE's viability score depends directly on domain cardinality.
+    """
     root = Path(upstream_root).resolve()
     primary_api = sample.get("primary_api")
     if primary_api not in PRIMARY_API_TO_PLUGIN:
@@ -47,5 +52,11 @@ def load_tool_specs_for_sample(
         plugin.initialize_from_config(sample["initial_config"])
 
     registry = ToolRegistry(manager)
+
+    context = dict(sample)
+    if "initial_config" in sample:
+        context["initial_config"] = sample["initial_config"]
+    registry.update_domain_from_data(context)
+
     tool_dicts = [tool.to_dict() for tool in registry.get_all_tools()]
     return load_tool_specs(tool_dicts)
