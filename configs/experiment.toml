@@ -14,6 +14,12 @@ candidate_prompt = "reconstructed_v1"
 threshold_quantity = "raw_viability"
 include_optional_parameters = true
 
+[development_model]
+backend = "ollama"
+model = "qwen2.5:7b"
+base_url = "http://localhost:11434/v1"
+role = "pipeline_validation_only"
+
 [study]
 conditions = ["natural", "oracle_complete", "forced_miss"]
 candidate_sizes = [1, 3, 5, 10]
