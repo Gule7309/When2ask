@@ -31,8 +31,21 @@ def main() -> None:
         help="Defaults to <upstream-root>/ClarifyBench/ClarifyBench_A",
     )
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--model", default=os.environ.get("WHEN2ASK_MODEL", "gpt-4o-2024-08-06"))
+    parser.add_argument(
+        "--model",
+        default=os.environ.get("WHEN2ASK_MODEL", "gpt-4o-2024-08-06"),
+    )
     parser.add_argument("--base-url", default=os.environ.get("OPENAI_BASE_URL"))
+    parser.add_argument(
+        "--backend",
+        default=os.environ.get("WHEN2ASK_BACKEND", "openai-compatible"),
+        help="Human-readable serving backend label stored in the trace.",
+    )
+    parser.add_argument(
+        "--model-revision",
+        default=os.environ.get("WHEN2ASK_MODEL_REVISION"),
+        help="Optional model revision, digest, or checkpoint identifier.",
+    )
     parser.add_argument("--n-candidates", type=int, default=5)
     parser.add_argument("--temperature", type=float, default=0.5)
     parser.add_argument("--epsilon", type=float, default=1e-4)
@@ -95,13 +108,18 @@ def main() -> None:
             }
             record["run"] = {
                 "scope": "initial_query_first_ground_truth_call",
+                "backend": args.backend,
+                "base_url": args.base_url,
                 "model": args.model,
+                "model_revision": args.model_revision,
                 "n_candidates": args.n_candidates,
                 "temperature": args.temperature,
                 "epsilon": args.epsilon,
                 "tau_exec": args.tau_exec,
                 "include_optional": not args.required_only,
                 "seed": args.seed,
+                "candidate_prompt_version": "reconstructed_v1",
+                "threshold_quantity": "raw_viability",
             }
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
             completed += 1
@@ -114,6 +132,8 @@ def main() -> None:
                 "completed": completed,
                 "skipped": skipped,
                 "scope": "initial_query_first_ground_truth_call",
+                "backend": args.backend,
+                "model": args.model,
             },
             indent=2,
         )
