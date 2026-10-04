@@ -9,6 +9,7 @@ from pathlib import Path
 from when2ask.clarifybench import load_sample
 from when2ask.harness import run_probe
 from when2ask.provider import OpenAIJsonGenerator
+from when2ask.sage import SageSettings, run_step
 from when2ask.upstream import load_tool_specs_for_sample
 
 
@@ -49,6 +50,11 @@ def main() -> None:
     parser.add_argument("--n-candidates", type=int, default=5)
     parser.add_argument("--temperature", type=float, default=0.5)
     parser.add_argument("--epsilon", type=float, default=1e-4)
+    parser.add_argument("--decision-mode", choices=["threshold", "sage-step"], default="threshold")
+    parser.add_argument("--max-steps", type=int, help="Explicit question budget for sage-step mode.")
+    parser.add_argument("--n-questions", type=int, default=3)
+    parser.add_argument("--lambda-cost", type=float, default=0.5)
+    parser.add_argument("--alpha", type=float, default=0.1)
     parser.add_argument(
         "--tau-exec",
         type=float,
@@ -63,6 +69,16 @@ def main() -> None:
         help="Sensitivity mode: exclude optional parameters from the viability product.",
     )
     args = parser.parse_args()
+    if args.decision_mode == "sage-step" and args.max_steps is None:
+        parser.error("--max-steps is required for sage-step; paper budget is unresolved")
+    settings = None
+    if args.decision_mode == "sage-step":
+        settings = SageSettings(
+            tau_exec=args.tau_exec, max_steps=args.max_steps,
+            n_candidates=args.n_candidates, n_questions=args.n_questions,
+            lambda_cost=args.lambda_cost, alpha=args.alpha, epsilon=args.epsilon,
+            temperature=args.temperature, include_optional=not args.required_only,
+        )
 
     dataset = args.dataset or args.upstream_root / "ClarifyBench" / "ClarifyBench_A"
     paths = sorted(dataset.glob("*.json"))
@@ -87,21 +103,19 @@ def main() -> None:
             ground_truth = sample.ground_truth_tool_calls[0]
             tools = load_tool_specs_for_sample(args.upstream_root, sample.raw)
 
-            result = run_probe(
-                generator,
-                sample_id=f"{sample.sample_id}:initial:first_gt",
-                user_query=sample.user_query,
-                observations=(),
-                tools=tools,
-                n_candidates=args.n_candidates,
-                tau_exec=args.tau_exec,
-                epsilon=args.epsilon,
-                temperature=args.temperature,
-                ground_truth=ground_truth,
-                include_optional=not args.required_only,
+            common = dict(
+                sample_id=f"{sample.sample_id}:initial:first_gt", user_query=sample.user_query,
+                observations=(), tools=tools, ground_truth=ground_truth,
             )
-
-            record = result.to_dict()
+            if settings is not None:
+                record = run_step(generator, step=0, settings=settings, **common)
+            else:
+                result = run_probe(
+                    generator, n_candidates=args.n_candidates, tau_exec=args.tau_exec,
+                    epsilon=args.epsilon, temperature=args.temperature,
+                    include_optional=not args.required_only, **common,
+                )
+                record = result.to_dict()
             record["ground_truth"] = {
                 "tool_name": ground_truth.tool_name,
                 "parameters": dict(ground_truth.parameters),
@@ -120,6 +134,7 @@ def main() -> None:
                 "seed": args.seed,
                 "candidate_prompt_version": "reconstructed_v1",
                 "threshold_quantity": "raw_viability",
+                "decision_mode": args.decision_mode,
             }
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
             completed += 1

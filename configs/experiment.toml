@@ -13,6 +13,9 @@ temperature = 0.5
 candidate_prompt = "reconstructed_v1"
 threshold_quantity = "raw_viability"
 include_optional_parameters = true
+question_prompt = "reconstructed_questions_v1"
+question_score_method = "optimistic_perfect_resolution_v1"
+# tau_exec and max_steps remain explicit caller-selected sensitivity parameters.
 
 [development_model]
 backend = "ollama"

@@ -6,7 +6,7 @@ This repository is a research reconstruction and controlled stress-test project 
 
 The working hypothesis is that SAGE's structured belief can be well-defined *conditional on the current candidate set* while still being overconfident about the task as a whole. If the correct interpretation is absent from the candidate set, downstream uncertainty scoring may have no explicit way to represent that omission.
 
-> **Status:** Phase 1 diagnostic harness implemented; no empirical result is claimed yet. The current harness reconstructs SAGE candidate generation, structured viability scoring, and the first execution-threshold check. Full EVPI question scoring is not implemented yet.
+> **Status:** Minimal instrumented SAGE decision steps implemented; no empirical result is claimed yet. Candidate generation and structured viability are followed by aspect-targeted question generation and an explicitly labelled optimistic perfect-resolution score. This is a mechanism reconstruction, not a complete reproduction of the paper's response-weighted EVPI or multi-turn benchmark.
 
 ## Research question
 
@@ -83,6 +83,7 @@ Only the third outcome would strongly support the proposed attack.
 │   ├── bootstrap_clarifybench.py
 │   ├── inspect_candidate_recall.py
 │   ├── run_initial_candidate_probe.py
+│   ├── run_sage_step.py
 │   ├── run_qwen25_7b_smoke.ps1
 │   └── summarize_initial_probe.py
 ├── src/when2ask/
@@ -97,13 +98,41 @@ Only the third outcome would strongly support the proposed attack.
 │   ├── models.py
 │   ├── probe_analysis.py
 │   ├── provider.py
+│   ├── questioning.py
+│   ├── sage.py
 │   ├── schema.py
 │   ├── trace_io.py
 │   └── upstream.py
 └── tests/
 ```
 
-The code now includes a minimal paper-reconstructed SAGE probe: N-way candidate generation with `<UNK>`, schema-based structured viability, and the first execution-threshold check. It deliberately stops before question generation / EVPI scoring. Ground-truth compatibility, interventions, and diagnostic metrics remain separate analysis components.
+The independent reconstruction lives in `src/when2ask/`; `upstream.py` only adapts upstream tool schemas and context. The decision core imports no ClarifyBench agent. Ground-truth compatibility, interventions, and diagnostic metrics remain separate analysis components.
+
+## Instrumented decision steps
+
+`when2ask.sage.run_step` accepts a request, observation history, current tool schemas, a zero-based step index, and aspect-query counts. Each result records `C_t` as `candidates`, raw `pi_c`, `normalized_share`, `gt_present`, and a final `decision.action` (`ask` or `execute`). It also records the question scores, stopping reason, settings, schema snapshot, and parsed model responses with prompt hashes. Ground truth is used only for diagnostic labels and is never passed to either generation prompt.
+
+Run the synthetic example without a model or credentials:
+
+```bash
+python -m pip install -e '.[dev]'
+python scripts/run_sage_step.py --input examples/sage_step.json \
+  --replay examples/sage_responses.json --output results/synthetic-step.jsonl
+```
+
+This emits an `ask` decision with raw viability `0.5` and normalized share `1.0`. The fixture is a plumbing check, not an experimental result. Use a fresh output path for each invocation; the CLI refuses to overwrite a trace. For live generation, replace `--replay ...` with `--model MODEL` and optionally `--base-url URL`, after installing `.[llm]`.
+
+The initial ClarifyBench probe can also emit final decision plans:
+
+```bash
+python scripts/run_initial_candidate_probe.py --model MODEL \
+  --decision-mode sage-step --tau-exec 0.8 --max-steps 3 \
+  --output results/initial-sage-steps.jsonl
+```
+
+Both `0.8` and `3` are illustrative sensitivity settings, not recovered paper values. The default `threshold` mode preserves the original first-stage probe. Neither CLI invokes domain tools or simulates user answers. `execute` denotes a selected plan; actual execution outcomes remain null. A caller can repeat `run_step` after supplying an answer in observations, updated schemas, and incremented aspect counts. Automatic constraint extraction and full multi-turn request alignment remain future work.
+
+The question score assumes simultaneous perfect resolution of targeted arguments and measures the increase in maximum raw viability, minus redundancy cost. It is deliberately named `optimistic_perfect_resolution_v1`, not full EVPI. The paper does not fully specify the response distribution required to implement that expectation. See the reconstruction notes for this limitation, tie handling, and stopping assumptions.
 
 ## Phase 1: initial candidate-set probe
 
@@ -155,7 +184,7 @@ python -m pip install -e '.[dev,llm]'
 pytest
 ```
 
-The test suite covers compatibility, interventions, structured viability, candidate generation, first-stage decisions, local JSON parsing, Phase 1 analysis, trace parsing, and the current ClarifyBench JSON schema. GitHub Actions runs the suite on pushes and pull requests.
+The test suite covers compatibility, interventions, structured viability, candidate generation, first-stage and final decision plans, question validation, redundancy costs, stopping boundaries, GT isolation, replay traces, local JSON parsing, Phase 1 analysis, and the current ClarifyBench JSON schema. GitHub Actions runs the suite on pushes and pull requests.
 
 ## Upstream
 

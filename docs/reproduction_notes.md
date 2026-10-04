@@ -55,6 +55,12 @@ Current sample files also contain fields such as `potential_follow_ups`, `user_i
 
 ## Reproduction discipline
 
+### Decision-step reconstruction added in this phase
+
+The published ACL method and arXiv v1 differ in their presentation of question scoring. The current decision harness uses a versioned optimistic perfect-resolution proxy, with raw viability for ranking and stopping, and logs normalized shares separately. Its assumptions are detailed in `sage_reconstruction.md`. This is a heuristic mechanism reconstruction; exact response-weighted EVPI is unresolved.
+
+The replay example is synthetic. It requires no upstream checkout, model server, or credentials and provides no empirical candidate-recall estimate. Tests exercise both ask and execute plans and verify that ground truth does not reach model prompts. Live initial probes remain restricted to the initial query / first GT call alignment. No complete ClarifyBench run or paper-results reproduction is claimed.
+
 Every empirical run should save at least:
 
 - this repository commit SHA;

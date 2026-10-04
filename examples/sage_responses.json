@@ -1,0 +1,5 @@
+[
+  {"candidates": [{"tool_name": "cancel_booking", "arguments": {"booking_id": "<UNK>"}}]},
+  {"questions": [{"text": "Which booking should I cancel?", "candidate_index": 0,
+                  "aspects": [{"tool_name": "cancel_booking", "argument": "booking_id"}]}]}
+]
