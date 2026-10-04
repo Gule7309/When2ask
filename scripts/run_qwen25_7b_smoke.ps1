@@ -26,9 +26,11 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $env:OPENAI_BASE_URL = $BaseUrl
 $env:OPENAI_API_KEY = "ollama"
 
-python scripts/run_initial_candidate_probe.py --model $Model --output $Output --tau-exec $TauExec --n-candidates $NCandidates --temperature 0.5 --limit $Limit --seed $Seed
+python scripts/run_initial_candidate_probe.py --model $Model --backend ollama --output $Output --tau-exec $TauExec --n-candidates $NCandidates --temperature 0.5 --limit $Limit --seed $Seed
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+python scripts/summarize_initial_probe.py $Output
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
 Write-Host "Probe written to $Output"
-Write-Host "Next: python scripts/summarize_initial_probe.py $Output"
