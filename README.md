@@ -134,6 +134,10 @@ Both `0.8` and `3` are illustrative sensitivity settings, not recovered paper va
 
 The question score assumes simultaneous perfect resolution of targeted arguments and measures the increase in maximum raw viability, minus redundancy cost. It is deliberately named `optimistic_perfect_resolution_v1`, not full EVPI. The paper does not fully specify the response distribution required to implement that expectation. See the reconstruction notes for this limitation, tie handling, and stopping assumptions.
 
+## Repeatable Phase 0 mechanism audit (synthetic, not empirical)
+
+The [offline reproducibility guide](docs/synthetic_replay_audit.md) and `scripts/reproduce_synthetic_fixture.py` generate one **executed CI artifact** from the checked-in replay JSON, including the exact source commit, fixture hashes, threshold settings, expected ASK trace and the structural Natural / Oracle-complete / Forced-miss / Oracle-recovery checks. The fixture evaluates **zero benchmark items** and runs **no model, tool, or user simulator**. It must never be cited as a positive H1–H3 result.
+
 ## Phase 1: initial candidate-set probe
 
 The first empirical step is a 20-example smoke test, followed by manual audit. On Windows with Ollama and Qwen2.5-7B:
