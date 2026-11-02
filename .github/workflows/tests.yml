@@ -16,3 +16,32 @@ jobs:
         run: python -m pip install -e '.[dev]'
       - name: Test
         run: pytest
+
+  synthetic_replay:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout pinned source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install local reconstruction
+        run: python -m pip install -e .
+      - name: Run and validate synthetic mechanism replay
+        env:
+          WHEN2ASK_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p artifacts
+          python scripts/reproduce_synthetic_fixture.py --output artifacts/synthetic-mechanism-audit.json
+          python -m json.tool artifacts/synthetic-mechanism-audit.json > /dev/null
+      - name: Publish reproducibility artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: when2ask-synthetic-mechanism-audit
+          path: artifacts/synthetic-mechanism-audit.json
+          retention-days: 30
+          if-no-files-found: error
