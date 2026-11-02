@@ -113,7 +113,7 @@ def reproduce(input_file: Path = INPUT, replay_file: Path = REPLAY) -> dict:
         "real_tool_executions": 0,
         "source": {
             "repository": "Gule7309/When2ask",
-            "commit_sha": os.environ.get("GITHUB_SHA", "unversioned-local"),
+            "commit_sha": os.environ.get("WHEN2ASK_SOURCE_SHA") or os.environ.get("GITHUB_SHA", "unversioned-local"),
             "input_path": str(input_file.relative_to(ROOT)),
             "input_sha256": sha256(input_file),
             "replay_path": str(replay_file.relative_to(ROOT)),
